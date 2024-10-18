@@ -11,7 +11,7 @@
     <template #action>
       <NButton type="primary" @click="handleAdd()">
         <i class="i-material-symbols:add mr-4 text-18" />
-        新增服务器
+        新增转发链
       </NButton>
     </template>
 
@@ -20,7 +20,7 @@
       v-model:query-items="queryItems"
       :scroll-x="1200"
       :columns="columns"
-      :get-data="api.listNodes"
+      :get-data="api.listChains"
     >
       <MeQueryItem label="服务器名" :label-width="60">
         <n-input
@@ -32,7 +32,7 @@
       </MeQueryItem>
 
       <MeQueryItem label="类型" :label-width="50">
-        <NSelect v-model:value="queryItems.nodeType" clearable :options="nodeTypes" />
+        <NSelect v-model:value="queryItems.nodeType" clearable :options="protocolType" />
       </MeQueryItem>
     </MeCrud>
 
@@ -46,25 +46,60 @@
         :disabled="modalAction === 'view'"
       >
         <n-form-item
-          label="服务器名"
-          path="nodeName"
+          v-if="modalAction === 'add'"
+          label="节点" path="nodeId"
           :rule="{
             required: true,
-            message: '请输入服务器名',
+          }"
+        >
+          <NSelect
+            v-model:value="modalForm.nodeId"
+
+            placeholder="搜索节点"
+            :loading="addLoadingRef"
+            :options="dynNodeListRef"
+            clearable filterable
+            @search="queryNode"
+          />
+        </n-form-item>
+        <n-form-item
+          label="链名称"
+          path="name"
+          :rule="{
+            required: true,
+            message: '请输入名称',
             trigger: ['input', 'blur'],
           }"
         >
-          <n-input v-model:value="modalForm.nodeName" :disabled="modalAction !== 'add'" />
+          <n-input v-model:value="modalForm.name" :disabled="modalAction !== 'add'" />
         </n-form-item>
 
         <n-form-item
           v-if="modalAction === 'add'"
-          label="类型" path="nodeType"
+          label="协议" path="chainType"
           :rule="{
             required: true,
           }"
         >
-          <NSelect v-model:value="modalForm.nodeType" :options="nodeTypes" />
+          <NSelect v-model:value="modalForm.chainType" :options="protocolType" />
+        </n-form-item>
+        <n-form-item
+          label="监听端口"
+          path="port"
+          :rule="{
+            required: true,
+          }"
+        >
+          <NInputNumber v-model:value="modalForm.port" clearable />
+        </n-form-item>
+        <n-form-item
+          label="IPv6"
+          path="preferIpv6"
+          :rule="{
+            required: true,
+          }"
+        >
+          <NSwitch v-model:value="modalForm.preferIpv6" />
         </n-form-item>
       </n-form>
     </MeModal>
@@ -72,7 +107,7 @@
 </template>
 
 <script setup>
-import { NButton, NSelect, NTag } from 'naive-ui'
+import { NButton, NInputNumber, NSelect, NSwitch, NTag } from 'naive-ui'
 import api from './api'
 import { formatDateTime } from '@/utils'
 import { MeCrud, MeModal, MeQueryItem } from '@/components'
@@ -84,14 +119,29 @@ const $table = ref(null)
 /** QueryBar筛选参数（可选） */
 const queryItems = ref({})
 
+const addLoadingRef = ref(false)
+
 onMounted(() => {
   $table.value?.handleSearch()
 })
 
-const nodeTypes = [
-  { label: '入口', value: 'inbound' },
-  { label: '出口', value: 'outbound' },
+const protocolType = [
+  { label: 'TLS', value: 'TLS' },
+  { label: 'TCP', value: 'TCP' },
 ]
+
+const nodeListRef = ref([])
+const dynNodeListRef = ref([])
+api.listNodes({ pageNo: -1 }).then((res) => {
+  nodeListRef.value = res.data.pageData.map(item => ({
+    label: item.nodeName,
+    value: item.id,
+  }))
+  dynNodeListRef.value = res.data.pageData.map(item => ({
+    label: item.nodeName,
+    value: item.id,
+  }))
+})
 
 const {
   modalRef,
@@ -103,18 +153,24 @@ const {
   handleOpen,
   handleSave,
 } = useCrud({
-  name: '服务器',
+  name: '转发链',
   initForm: { enable: true },
-  doCreate: api.addNode,
-  doDelete: api.deleteNode,
+  doCreate: api.addChain,
+  doDelete: api.deleteChain,
   doUpdate: api.update,
   refresh: () => $table.value?.handleSearch(),
 })
 
 const columns = [
   {
-    title: '服务器名称',
-    key: 'nodeName',
+    title: '节点',
+    key: 'node.nodeName',
+    width: 120,
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: '链路名称',
+    key: 'chainName',
     width: 160,
     ellipsis: { tooltip: true },
   },
@@ -126,10 +182,9 @@ const columns = [
       return h('span', formatDateTime(row.createdAt))
     },
   },
-  { title: 'IPv4', key: 'ipv4', width: 180, ellipsis: { tooltip: true } },
-  { title: 'IPv6', key: 'ipv6', width: 180, ellipsis: { tooltip: true } },
+  { title: 'IP地址', key: 'ip', width: 180, ellipsis: { tooltip: true } },
   {
-    title: 'API端口',
+    title: '监听端口',
     key: 'port',
     width: 80,
     ellipsis: { tooltip: true },
@@ -142,22 +197,16 @@ const columns = [
     },
   },
   {
-    title: '密钥',
-    key: 'key',
-    width: 260,
+    title: '转发协议',
+    key: 'protocol',
+    width: 100,
     ellipsis: { tooltip: true },
-    render: ({ key }) =>
+    render: ({ protocol }) =>
       h(
         NTag,
         { type: 'success' },
-        { default: () => key },
+        { default: () => protocol },
       ),
-  },
-  {
-    title: '节点类型',
-    key: 'nodeType',
-    width: 80,
-    render: ({ nodeType }) => nodeTypes.find(item => nodeType === item.value)?.label ?? '',
   },
   {
     title: '操作',
@@ -212,6 +261,14 @@ const columns = [
     },
   },
 ]
+
+function queryNode(query) {
+  addLoadingRef.value = true
+  dynNodeListRef.value = nodeListRef.value.filter(
+    item => ~item.label.indexOf(query),
+  )
+  addLoadingRef.value = false
+}
 
 function handleOpenRolesSet(row) {
   const roleIds = row.roles.map(item => item.id)

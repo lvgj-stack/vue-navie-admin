@@ -18,6 +18,11 @@ export default {
   getAllRoles: () => request.get('/role?enable=1'),
 
   listNodes: data => request.post(`/stander/node?Action=ListNodes`, data),
-  addNode: data => request.post(`/stander/node?Action=AddNode`, data),
-  deleteNode: data => request.post(`/stander/node?Action=DeleteNode`, { ID: data }),
+  listChains: data => request.post(`/stander/chain?Action=ListChains`, data),
+
+  deleteRule: data => request.post(`/stander/rule?Action=DeleteRule`, { ID: data }),
+  testRule: data => request.post(`/stander/rule?Action=TestRule`, { ID: data }),
+  listRules: data => request.post(`/stander/rule?Action=ListRules`, data),
+  addRule: data => request.post(`/stander/rule?Action=AddRule`, data),
+  modifyRule: data => request.post(`/stander/rule?Action=ModifyRule`, { ID: data.id, RuleName: data.ruleName, ListenPort: data.listenPort, ChainId: data.chainId, RemoteAddr: data.remoteAddr }),
 }

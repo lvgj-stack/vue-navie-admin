@@ -18,6 +18,7 @@ export default {
   getAllRoles: () => request.get('/role?enable=1'),
 
   listNodes: data => request.post(`/stander/node?Action=ListNodes`, data),
-  addNode: data => request.post(`/stander/node?Action=AddNode`, data),
-  deleteNode: data => request.post(`/stander/node?Action=DeleteNode`, { ID: data }),
+  listChains: data => request.post(`/stander/chain?Action=ListChains`, data),
+  addChain: data => request.post(`/stander/chain?Action=AddChain`, data),
+  deleteChain: data => request.post(`/stander/chain?Action=DeleteChain`, { ID: data }),
 }
